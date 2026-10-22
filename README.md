@@ -23,6 +23,14 @@ swift Tools/make_icon.swift   # regenerate Resources/AppIcon.icns
 
 `--release` needs a Developer ID Application certificate in the keychain and `.env.release` (see `.env.release.example`).
 
+## Release
+
+```sh
+./release.sh 1.1
+```
+
+Sets the version in `Info.plist` and on the website, builds, signs and notarizes, tags, uploads `FlipScroll.zip` to GitHub Releases and redeploys the site. Needs `gh` and `firebase` logged in.
+
 ## Website
 
 The landing page lives in `site/` and deploys to Firebase Hosting:
