@@ -1,0 +1,7 @@
+build/
+dist/
+.env.release
+*.p8
+*.p12
+.DS_Store
+.firebase/

@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlipScroll – Free Scroll Reverser for Mac (Mouse &amp; Trackpad)</title>
+<meta name="description" content="FlipScroll is a free scroll reverser for macOS. Reverse mouse scroll direction, vertical and horizontal, while your trackpad keeps natural scrolling.">
+<meta name="keywords" content="scroll reverser, scroll reverser mac, reverse scroll direction mac, reverse mouse scroll mac, natural scrolling mouse only, horizontal scroll reverse, macOS">
+<link rel="canonical" href="https://flipscroll.brickandclick.tech/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://flipscroll.brickandclick.tech/">
+<meta property="og:title" content="FlipScroll – Free Scroll Reverser for Mac">
+<meta property="og:description" content="Mouse scrolls like a mouse. Trackpad stays natural. Vertical and horizontal, set separately.">
+<meta property="og:image" content="https://flipscroll.brickandclick.tech/icon.png">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "FlipScroll",
+  "alternateName": ["FlipScroll Scroll Reverser", "Scroll Reverser for Mac"],
+  "description": "Free scroll reverser for macOS. Reverse mouse scrolling vertically and horizontally while the trackpad keeps natural scrolling.",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "macOS 13 or later",
+  "softwareVersion": "1.0",
+  "url": "https://flipscroll.brickandclick.tech/",
+  "downloadUrl": "https://github.com/develant/flipscroll/releases/latest/download/FlipScroll.zip",
+  "image": "https://flipscroll.brickandclick.tech/icon.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Organization", "name": "Brick and Click", "url": "https://brickandclick.tech" }
+}
+</script>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --text: #15172b;
+    --muted: #5d6280;
+    --line: #e3e5f0;
+    --accent-1: #6a4cf2;
+    --accent-2: #1a9ef2;
+    --accent: #4a6cf2;
+    --check: #4a6cf2;
+    --shadow: 0 1px 2px rgba(20, 24, 60, .06), 0 8px 24px rgba(20, 24, 60, .08);
+    --menu-bg: rgba(246, 246, 250, .92);
+    --coffee-bg: #ffdd00;
+    --coffee-text: #1d1d1d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1020;
+      --surface: #181a30;
+      --text: #eef0fb;
+      --muted: #a2a7c6;
+      --line: #2a2d4a;
+      --accent: #8aa0ff;
+      --check: #8aa0ff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      --menu-bg: rgba(40, 42, 64, .92);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1020;
+    --surface: #181a30;
+    --text: #eef0fb;
+    --muted: #a2a7c6;
+    --line: #2a2d4a;
+    --accent: #8aa0ff;
+    --check: #8aa0ff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    --menu-bg: rgba(40, 42, 64, .92);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    text-align: center;
+    padding: 72px 0 56px;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: -40% -20% auto;
+    height: 520px;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--accent-1) 22%, transparent), transparent),
+                radial-gradient(closest-side at 70% 40%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent);
+    z-index: -1;
+  }
+  .hero img.icon { width: 152px; height: 152px; filter: drop-shadow(0 12px 24px rgba(40, 50, 140, .25)); }
+  h1 {
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.1;
+    letter-spacing: -.02em;
+    margin: 20px 0 12px;
+  }
+  .kicker {
+    margin: -4px 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .tagline {
+    font-size: clamp(18px, 2.6vw, 22px);
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto 32px;
+  }
+  .tagline strong { color: var(--text); font-weight: 600; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 26px;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 17px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { text-decoration: none; transform: translateY(-1px); }
+  .btn-primary {
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    box-shadow: 0 8px 20px rgba(74, 108, 242, .35);
+  }
+  .btn-coffee { background: var(--coffee-bg); color: var(--coffee-text); box-shadow: 0 8px 20px rgba(255, 200, 0, .25); }
+  .btn svg { width: 20px; height: 20px; flex: none; }
+  .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
+
+  /* Sections */
+  section { padding: 48px 0; }
+  h2 { font-size: 28px; letter-spacing: -.01em; margin: 0 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 28px; }
+
+  /* Problem / solution demo */
+  .demo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: center;
+  }
+  .menu {
+    background: var(--menu-bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 6px;
+    font-size: 14px;
+    max-width: 300px;
+    justify-self: center;
+    width: 100%;
+    backdrop-filter: blur(20px);
+  }
+  .menu .item { display: flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 6px; }
+  .menu .item.indent { padding-left: 24px; }
+  .menu .item .tick { width: 14px; color: var(--check); font-weight: 700; }
+  .menu .header { color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 10px 2px; }
+  .menu .sep { height: 1px; background: var(--line); margin: 5px 8px; }
+  .menu .item.hover { background: var(--accent); color: #fff; }
+  .menu .item.hover .tick { color: #fff; }
+
+  .axes { display: grid; gap: 12px; }
+  .axis {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .axis .glyph {
+    flex: none;
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: grid; place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  }
+  .axis .glyph svg { width: 24px; height: 24px; }
+  .axis b { display: block; font-size: 16px; }
+  .axis span { color: var(--muted); font-size: 14px; line-height: 1.4; display: block; }
+
+  /* Features */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .card h3 { font-size: 17px; margin: 0 0 6px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
+
+  /* Steps */
+  ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: 14px; }
+  ol.steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 16px 18px 16px 64px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute; left: 18px; top: 16px;
+    width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 15px; color: #fff;
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  }
+  ol.steps li b { display: block; }
+  ol.steps li span { color: var(--muted); font-size: 15px; }
+  kbd, code {
+    font: 14px ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: color-mix(in srgb, var(--line) 60%, transparent);
+    padding: 1px 6px;
+    border-radius: 5px;
+    word-break: break-word;
+  }
+
+  /* FAQ */
+  details {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+  }
+  summary { cursor: pointer; font-weight: 600; list-style: none; position: relative; padding-right: 24px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; position: absolute; right: 0; top: -2px; font-size: 22px; color: var(--muted); }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--muted); margin: 10px 0 0; font-size: 15px; }
+
+  /* Support */
+  .support {
+    text-align: center;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    padding: 40px 20px;
+    box-shadow: var(--shadow);
+  }
+  .support p { color: var(--muted); max-width: 520px; margin: 0 auto 24px; }
+
+  footer {
+    padding: 40px 0 56px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  footer p { margin: 4px 0; }
+
+  @media (max-width: 680px) {
+    .hero { padding: 48px 0 40px; }
+    .hero img.icon { width: 120px; height: 120px; }
+    .demo { grid-template-columns: 1fr; }
+    section { padding: 36px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="icon" src="icon.png" alt="FlipScroll icon" width="152" height="152">
+    <h1>FlipScroll</h1>
+    <p class="kicker">The scroll reverser for Mac</p>
+    <p class="tagline">Your mouse scrolls like a <strong>mouse</strong>. Your trackpad stays <strong>natural</strong>. Up, down, left and right, each set separately.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/develant/flipscroll/releases/latest/download/FlipScroll.zip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+        Download for Mac
+      </a>
+      <a class="btn btn-coffee" href="https://buymeacoffee.com/aleant" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2.5c0 1 1 1 1 2s-1 1-1 2M12 2.5c0 1 1 1 1 2s-1 1-1 2"/></svg>
+        Buy me a coffee
+      </a>
+    </div>
+    <p class="meta">Version 1.0 · Free · macOS 13 Ventura or later · Apple silicon &amp; Intel</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="why">
+    <h2>One switch per direction</h2>
+    <p class="lead">macOS has a single “natural scrolling” setting for everything. Most scroll reversers only flip vertical scrolling, so sideways scrolling on your mouse still feels like a trackpad. FlipScroll lets you reverse each direction for each device.</p>
+    <div class="demo">
+      <div class="menu" role="img" aria-label="FlipScroll menu: Enabled, Mouse reverse vertical and horizontal on, Trackpad both off">
+        <div class="item"><span class="tick">✓</span>Enabled</div>
+        <div class="sep"></div>
+        <div class="header">Mouse</div>
+        <div class="item indent"><span class="tick">✓</span>Reverse Vertical</div>
+        <div class="item indent hover"><span class="tick">✓</span>Reverse Horizontal</div>
+        <div class="header">Trackpad</div>
+        <div class="item indent"><span class="tick"></span>Reverse Vertical</div>
+        <div class="item indent"><span class="tick"></span>Reverse Horizontal</div>
+        <div class="sep"></div>
+        <div class="item"><span class="tick">✓</span>Launch at Login</div>
+        <div class="sep"></div>
+        <div class="item"><span class="tick"></span>Quit</div>
+      </div>
+      <div class="axes">
+        <div class="axis">
+          <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M7 8l5-5 5 5M7 16l5 5 5-5"/></svg></div>
+          <div><b>Vertical</b><span>Roll the wheel down and the page moves down, as a mouse should.</span></div>
+        </div>
+        <div class="axis">
+          <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg></div>
+          <div><b>Horizontal</b><span>Tilt the wheel or use the side scroller and sideways scrolling goes the right way too.</span></div>
+        </div>
+        <div class="axis">
+          <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9 15h6"/></svg></div>
+          <div><b>Trackpad untouched</b><span>Two-finger scrolling keeps the natural direction, unless you choose otherwise.</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2>Small, quiet, out of the way</h2>
+    <p class="lead">It lives in the menu bar and does one job.</p>
+    <div class="features">
+      <div class="card"><h3>Tells devices apart</h3><p>Wheel mice, smooth-scrolling mice, Magic Mouse and trackpads are recognised automatically.</p></div>
+      <div class="card"><h3>Momentum aware</h3><p>Coasting after you lift your fingers keeps the direction of the device that started it.</p></div>
+      <div class="card"><h3>Launch at login</h3><p>Turn it on once from the menu and forget about it.</p></div>
+      <div class="card"><h3>Private</h3><p>No network access, no analytics, no account. Settings stay on your Mac.</p></div>
+      <div class="card"><h3>Universal</h3><p>Runs natively on Apple silicon and Intel Macs with macOS 13 or later.</p></div>
+      <div class="card"><h3>Free</h3><p>No trial, no upgrade. If it helps you, a coffee keeps it maintained.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="lead">Takes about a minute.</p>
+    <ol class="steps">
+      <li><b>Download and unzip</b><span>Move <code>FlipScroll.app</code> into your <code>Applications</code> folder.</span></li>
+      <li><b>Open it</b><span>A new icon appears in the menu bar. FlipScroll is signed and notarized by Apple, so it opens without warnings.</span></li>
+      <li><b>Allow Accessibility access</b><span>macOS asks for permission so the app can adjust scroll events. Switch on FlipScroll in System Settings → Privacy &amp; Security → Accessibility.</span></li>
+      <li><b>Pick your directions</b><span>Click the menu bar icon and tick what to reverse for the mouse and the trackpad.</span></li>
+    </ol>
+  </section>
+
+  <section id="faq">
+    <h2>Questions</h2>
+    <details>
+      <summary>Is FlipScroll a scroll reverser?</summary>
+      <p>Yes. FlipScroll is a free scroll reverser for macOS: it reverses the scroll direction of your mouse and, if you want, your trackpad. Unlike most scroll reversers it handles horizontal scrolling separately, so a mouse can scroll the classic way in every direction while the trackpad keeps natural scrolling.</p>
+    </details>
+    <details>
+      <summary>Can I turn off natural scrolling for the mouse only?</summary>
+      <p>macOS can’t do it on its own because one setting covers every device. Keep natural scrolling on in System Settings and let FlipScroll reverse the mouse; the trackpad stays natural.</p>
+    </details>
+    <details>
+      <summary>Why does it need Accessibility access?</summary>
+      <p>Changing scroll direction means adjusting scroll events before apps receive them, and macOS only allows that for apps with Accessibility permission. The app reads nothing else and sends nothing anywhere.</p>
+    </details>
+    <details>
+      <summary>Should natural scrolling be on or off in System Settings?</summary>
+      <p>Leave it on, as most trackpad users do. Then reverse both directions for the mouse and nothing for the trackpad. If you prefer it off, flip the choices the other way.</p>
+    </details>
+    <details>
+      <summary>It stopped working after an update.</summary>
+      <p>macOS sometimes forgets the permission when an app is replaced. In System Settings → Privacy &amp; Security → Accessibility, remove FlipScroll with the – button and add it again.</p>
+    </details>
+    <details>
+      <summary>My Magic Mouse is treated like a trackpad.</summary>
+      <p>The app tells them apart by how many fingers are touching: one finger is a Magic Mouse, two or more is a trackpad. Scrolling a Magic Mouse with two fingers is counted as a trackpad.</p>
+    </details>
+    <details>
+      <summary>How do I uninstall it?</summary>
+      <p>Quit it from the menu bar, move it from Applications to the Bin, and remove it from the Accessibility list.</p>
+    </details>
+  </section>
+
+  <section id="support">
+    <div class="support">
+      <h2>Enjoying it?</h2>
+      <p>FlipScroll is free and built in spare time. If it saved your wrist some confusion, you can buy me a coffee.</p>
+      <a class="btn btn-coffee" href="https://buymeacoffee.com/aleant" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2.5c0 1 1 1 1 2s-1 1-1 2M12 2.5c0 1 1 1 1 2s-1 1-1 2"/></svg>
+        Buy me a coffee
+      </a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <p>Made by <a href="https://brickandclick.tech">Brick and Click</a> · <a href="mailto:hello@brickandclick.tech">Contact</a></p>
+  <p>Mac, macOS, Magic Mouse and trackpad are trademarks of Apple Inc.</p>
+</footer>
+
+</body>
+</html>

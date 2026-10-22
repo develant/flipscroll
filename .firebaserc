@@ -1,0 +1,4 @@
+{
+  "projects": { "default": "brickandclick" },
+  "targets": { "brickandclick": { "hosting": { "flipscroll": ["brick-flipscroll"] } } }
+}
