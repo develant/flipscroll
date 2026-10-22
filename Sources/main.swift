@@ -1,6 +1,12 @@
 import Cocoa
 import ApplicationServices
 import ServiceManagement
+import os
+
+/// Enable with `defaults write tech.brickandclick.flipscroll debugLog -bool true`, then
+/// `log stream --predicate 'subsystem == "tech.brickandclick.flipscroll"'`.
+let log = Logger(subsystem: "tech.brickandclick.flipscroll", category: "scroll")
+let debugLog = UserDefaults.standard.bool(forKey: "debugLog")
 
 // MARK: - Settings
 
@@ -33,12 +39,19 @@ enum Source { case mouse, trackpad }
 
 /// Tracks finger count from gesture events so continuous scrolls can be
 /// attributed to the trackpad (2+ fingers) or a Magic Mouse (1 finger).
+/// The source is decided once when a scroll gesture begins and kept until it
+/// and its momentum end, since fingers lift before the last events arrive.
 final class ScrollTap {
     static let shared = ScrollTap()
 
+    private static let phaseBegan: Int64 = 1
+    private static let phaseMayBegin: Int64 = 128
+
     private var tap: CFMachPort?
     private var touchCount = 0
-    private var sawGestures = false
+    /// macOS hides touch data unless Input Monitoring is granted; without it every
+    /// gesture reports 0 touches and finger counting can't be trusted.
+    private var touchesVisible = false
     private var lastSource: Source = .mouse
 
     var isRunning: Bool { tap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false }
@@ -74,8 +87,10 @@ final class ScrollTap {
         default:
             if type.rawValue == UInt32(NSEvent.EventType.gesture.rawValue),
                let ns = NSEvent(cgEvent: event) {
-                sawGestures = true
-                touchCount = ns.touches(matching: .touching, in: nil).count
+                let count = ns.touches(matching: .touching, in: nil).count
+                if count > 0 { touchesVisible = true }
+                if debugLog, count != touchCount { log.debug("gesture touches=\(count)") }
+                touchCount = count
             }
         }
         return Unmanaged.passUnretained(event)
@@ -88,10 +103,15 @@ final class ScrollTap {
 
         // Classic notched wheel, or smooth-scrolling mouse drivers without phases.
         if !continuous || (phase == 0 && momentum == 0) { return .mouse }
-        // Momentum continues after fingers lift: keep whatever started the scroll.
-        if momentum != 0 { return lastSource }
-        if !sawGestures { return .trackpad }
-        return touchCount >= 2 ? .trackpad : .mouse
+        // Mid-gesture, ended, or momentum: keep whatever started the scroll.
+        guard phase == Self.phaseBegan || phase == Self.phaseMayBegin else { return lastSource }
+        // Phased scrolling only comes from multi-touch devices. Without touch data,
+        // assume trackpad (a Magic Mouse then follows the trackpad settings).
+        let src: Source = !touchesVisible || touchCount >= 2 ? .trackpad : .mouse
+        if debugLog {
+            log.debug("scroll begin phase=\(phase) touches=\(self.touchCount) visible=\(self.touchesVisible) -> \(src == .trackpad ? "trackpad" : "mouse")")
+        }
+        return src
     }
 
     private func reverse(_ event: CGEvent) {
@@ -175,6 +195,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             menu.addItem(item)
         }
+        if !CGPreflightListenEventAccess() {
+            let item = NSMenuItem(title: "Allow Input Monitoring (for Magic Mouse)…",
+                                  action: #selector(requestInputMonitoring), keyEquivalent: "")
+            item.target = self
+            menu.addItem(item)
+        }
         let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
@@ -213,6 +239,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             NSAlert(error: error).runModal()
+        }
+    }
+
+    @objc private func requestInputMonitoring() {
+        if !CGRequestListenEventAccess() {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
         }
     }
 
