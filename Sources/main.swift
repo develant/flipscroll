@@ -37,35 +37,52 @@ enum Settings {
 
 enum Source { case mouse, trackpad }
 
-/// Tracks finger count from gesture events so continuous scrolls can be
-/// attributed to the trackpad (2+ fingers) or a Magic Mouse (1 finger).
-/// The source is decided once when a scroll gesture begins and kept until it
-/// and its momentum end, since fingers lift before the last events arrive.
+/// Private CoreGraphics and IOKit functions, looked up at runtime. They expose the
+/// HID event behind a scroll event, and so the device that sent it. Scroll Reverser
+/// relies on the same ones.
+enum HID {
+    typealias CopyEvent = @convention(c) (CGEvent) -> Unmanaged<CFTypeRef>?
+    typealias GetSender = @convention(c) (CFTypeRef) -> UInt64
+    typealias GetFloat = @convention(c) (CFTypeRef, UInt32) -> Double
+    typealias SetFloat = @convention(c) (CFTypeRef, UInt32, Double) -> Void
+
+    private static let image = dlopen(nil, RTLD_NOW)
+    private static func load<T>(_ name: String) -> T? {
+        dlsym(image, name).map { unsafeBitCast($0, to: T.self) }
+    }
+
+    static let copyEvent: CopyEvent? = load("CGEventCopyIOHIDEvent")
+    static let senderID: GetSender? = load("IOHIDEventGetSenderID")
+    static let getFloat: GetFloat? = load("IOHIDEventGetFloatValue")
+    static let setFloat: SetFloat? = load("IOHIDEventSetFloatValue")
+
+    // (kIOHIDEventTypeScroll << 16) | axis
+    static let fieldScrollX: UInt32 = 6 << 16
+    static let fieldScrollY: UInt32 = 6 << 16 | 1
+}
+
+/// Reverses scroll events per device and axis. The device is identified from the HID
+/// sender of each event: trackpads publish HIDTrackpadScrollAcceleration, while mice,
+/// the Magic Mouse included, publish HIDMouseScrollAcceleration.
 final class ScrollTap {
     static let shared = ScrollTap()
 
-    private static let phaseBegan: Int64 = 1
-    private static let phaseMayBegin: Int64 = 128
-
     private var tap: CFMachPort?
-    private var touchCount = 0
-    /// macOS hides touch data unless Input Monitoring is granted; without it every
-    /// gesture reports 0 touches and finger counting can't be trusted.
-    private var touchesVisible = false
     private var lastSource: Source = .mouse
+    /// Registry entry IDs are not reused within a boot, so lookups are cached per sender.
+    private var sources: [UInt64: Source] = [:]
+    /// Senders not yet in the registry (new virtual devices) are retried at most every 250ms.
+    private var retryAfter: [UInt64: TimeInterval] = [:]
 
     var isRunning: Bool { tap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false }
 
     func start() -> Bool {
         if tap != nil { return true }
-        let gestureType = CGEventType(rawValue: UInt32(NSEvent.EventType.gesture.rawValue))!
-        let mask = (CGEventMask(1) << CGEventType.scrollWheel.rawValue)
-                 | (CGEventMask(1) << gestureType.rawValue)
         guard let port = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
             place: .headInsertEventTap,
             options: .defaultTap,
-            eventsOfInterest: mask,
+            eventsOfInterest: CGEventMask(1) << CGEventType.scrollWheel.rawValue,
             callback: { _, type, event, _ in
                 ScrollTap.shared.handle(type: type, event: event)
             },
@@ -85,56 +102,87 @@ final class ScrollTap {
         case .scrollWheel:
             if Settings[.enabled] { reverse(event) }
         default:
-            if type.rawValue == UInt32(NSEvent.EventType.gesture.rawValue),
-               let ns = NSEvent(cgEvent: event) {
-                let count = ns.touches(matching: .touching, in: nil).count
-                if count > 0 { touchesVisible = true }
-                if debugLog, count != touchCount { log.debug("gesture touches=\(count)") }
-                touchCount = count
-            }
+            break
         }
         return Unmanaged.passUnretained(event)
     }
 
-    private func source(of event: CGEvent) -> Source {
-        let continuous = event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0
-        let phase = event.getIntegerValueField(.scrollWheelEventScrollPhase)
-        let momentum = event.getIntegerValueField(.scrollWheelEventMomentumPhase)
+    private func source(of event: CGEvent, hidEvent: CFTypeRef?) -> Source {
+        if let hidEvent, let senderID = HID.senderID?(hidEvent), senderID != 0,
+           let src = source(forSender: senderID) {
+            return src
+        }
+        // No device information: momentum keeps the device that started the scroll,
+        // and continuous scrolling most likely comes from a trackpad.
+        if event.getIntegerValueField(.scrollWheelEventMomentumPhase) != 0 { return lastSource }
+        return event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0 ? .trackpad : .mouse
+    }
 
-        // Classic notched wheel, or smooth-scrolling mouse drivers without phases.
-        if !continuous || (phase == 0 && momentum == 0) { return .mouse }
-        // Mid-gesture, ended, or momentum: keep whatever started the scroll.
-        guard phase == Self.phaseBegan || phase == Self.phaseMayBegin else { return lastSource }
-        // Phased scrolling only comes from multi-touch devices. Without touch data,
-        // assume trackpad (a Magic Mouse then follows the trackpad settings).
-        let src: Source = !touchesVisible || touchCount >= 2 ? .trackpad : .mouse
+    private func source(forSender senderID: UInt64) -> Source? {
+        if let cached = sources[senderID] { return cached }
+        let now = ProcessInfo.processInfo.systemUptime
+        if let retry = retryAfter[senderID], now < retry { return nil }
+
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(senderID))
+        guard service != 0 else {
+            retryAfter[senderID] = now + 0.25
+            return nil
+        }
+        defer { IOObjectRelease(service) }
+
+        let acceleration = IORegistryEntrySearchCFProperty(
+            service, kIOServicePlane, "HIDScrollAccelerationType" as CFString, nil,
+            IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)) as? String
+        let src: Source = acceleration == "HIDTrackpadScrollAcceleration"
+            || conformsToSelfOrParent(service, "AppleMultitouchTrackpadHIDEventDriver") ? .trackpad : .mouse
+        sources[senderID] = src
+        retryAfter[senderID] = nil
         if debugLog {
-            log.debug("scroll begin phase=\(phase) touches=\(self.touchCount) visible=\(self.touchesVisible) -> \(src == .trackpad ? "trackpad" : "mouse")")
+            log.debug("sender \(senderID) acceleration=\(acceleration ?? "none", privacy: .public) -> \(src == .trackpad ? "trackpad" : "mouse", privacy: .public)")
         }
         return src
     }
 
+    /// The multitouch drivers publish an AppleMultitouchDevice child that sends the
+    /// events, so the parent's class counts too.
+    private func conformsToSelfOrParent(_ service: io_service_t, _ className: String) -> Bool {
+        if IOObjectConformsTo(service, className) != 0 { return true }
+        var parent: io_registry_entry_t = 0
+        guard IORegistryEntryGetParentEntry(service, kIOServicePlane, &parent) == KERN_SUCCESS else { return false }
+        defer { IOObjectRelease(parent) }
+        return IOObjectConformsTo(parent, className) != 0
+    }
+
     private func reverse(_ event: CGEvent) {
-        let src = source(of: event)
+        let hidEvent = HID.copyEvent?(event)?.takeRetainedValue()
+        let src = source(of: event, hidEvent: hidEvent)
         lastSource = src
         let vertical = Settings[src == .mouse ? .mouseVertical : .trackpadVertical]
         let horizontal = Settings[src == .mouse ? .mouseHorizontal : .trackpadHorizontal]
 
+        // Point deltas go after DeltaAxis: setting DeltaAxis makes macOS recompute the
+        // point and fixed-point values, which would lose smooth scrolling.
         if vertical {
             let delta = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
-            let point = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
             let fixed = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
+            let point = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
             event.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: -delta)
-            event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: -point)
             event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: -fixed)
+            event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: -point)
+            if let hidEvent, let get = HID.getFloat, let set = HID.setFloat {
+                set(hidEvent, HID.fieldScrollY, -get(hidEvent, HID.fieldScrollY))
+            }
         }
         if horizontal {
             let delta = event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
-            let point = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
             let fixed = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
+            let point = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
             event.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: -delta)
-            event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: -point)
             event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: -fixed)
+            event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: -point)
+            if let hidEvent, let get = HID.getFloat, let set = HID.setFloat {
+                set(hidEvent, HID.fieldScrollX, -get(hidEvent, HID.fieldScrollX))
+            }
         }
     }
 }
@@ -195,12 +243,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             menu.addItem(item)
         }
-        if !CGPreflightListenEventAccess() {
-            let item = NSMenuItem(title: "Allow Input Monitoring (for Magic Mouse)…",
-                                  action: #selector(requestInputMonitoring), keyEquivalent: "")
-            item.target = self
-            menu.addItem(item)
-        }
         let login = NSMenuItem(title: "Launch at Login", action: #selector(toggleLogin), keyEquivalent: "")
         login.target = self
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
@@ -239,12 +281,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             NSAlert(error: error).runModal()
-        }
-    }
-
-    @objc private func requestInputMonitoring() {
-        if !CGRequestListenEventAccess() {
-            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!)
         }
     }
 

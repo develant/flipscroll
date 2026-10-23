@@ -7,7 +7,7 @@ FlipScroll is a free macOS menu bar app that reverses scroll direction separatel
 ## Features
 
 - Reverse vertical and horizontal scrolling independently
-- Separate settings for mouse and trackpad (Magic Mouse detected by finger count)
+- Separate settings for mouse and trackpad, detected per device (Magic Mouse counts as a mouse)
 - Momentum scrolling keeps the direction of the device that started it
 - Launch at login, no network access, no analytics
 - Universal binary, macOS 13 or later
