@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact – FlipScroll</title>
+<meta name="description" content="Questions, bug reports or ideas for FlipScroll, the free scroll reverser for Mac. Send a message and we'll reply by email.">
+<link rel="canonical" href="https://flipscroll.brickandclick.tech/contact">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="wrap topbar">
+  <a class="brand" href="./"><img src="icon.png" alt="" width="28" height="28">FlipScroll</a>
+  <nav><a href="./#install">Install</a><a href="./#faq">FAQ</a><a href="contact" aria-current="page">Contact</a></nav>
+</div>
+
+<main class="wrap">
+  <section>
+    <h1>Get in touch</h1>
+    <p class="lead">Found a bug, have an idea, or a question about FlipScroll? Send a message and we’ll reply by email, usually within a couple of days.</p>
+
+    <form class="form" id="contact-form" novalidate>
+      <label>Name
+        <input type="text" name="name" autocomplete="name" required maxlength="100">
+        <span class="error" data-for="name" hidden>Please enter your name.</span>
+      </label>
+      <label>Email
+        <input type="email" name="email" autocomplete="email" required maxlength="200">
+        <span class="error" data-for="email" hidden>Please enter a valid email address.</span>
+      </label>
+      <label>Topic
+        <select name="topic">
+          <option>Question</option>
+          <option>Bug report</option>
+          <option>Feature idea</option>
+          <option>Other</option>
+        </select>
+      </label>
+      <label>Message
+        <textarea name="message" required maxlength="5000"></textarea>
+        <span class="hint">For bugs, include your macOS version and which mouse or trackpad you use.</span>
+        <span class="error" data-for="message" hidden>Please write a message.</span>
+      </label>
+      <div class="hp" aria-hidden="true">
+        <label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+      <button class="btn btn-primary" type="submit">Send message</button>
+      <div class="notice ok" id="sent" role="status" hidden>Thanks, your message is on its way. We’ll reply to the email address you gave.</div>
+      <div class="notice fail" id="failed" role="alert" hidden>Sorry, the message couldn’t be sent. Please try again, or email <a href="mailto:hello@brickandclick.tech">hello@brickandclick.tech</a>.</div>
+    </form>
+
+    <p class="meta" style="margin-top:28px">Prefer email? Write to <a href="mailto:hello@brickandclick.tech">hello@brickandclick.tech</a>.</p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>Made by <a href="https://www.brickandclick.tech">Brick and Click</a> · <a href="./">FlipScroll</a> · <a href="https://github.com/develant/flipscroll">GitHub</a></p>
+  <p>Mac, macOS, Magic Mouse and trackpad are trademarks of Apple Inc.</p>
+</footer>
+
+<script>
+(() => {
+  const form = document.getElementById('contact-form');
+  const button = form.querySelector('button[type="submit"]');
+  const sent = document.getElementById('sent');
+  const failed = document.getElementById('failed');
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const showError = (name, show) => {
+    form.querySelector(`.error[data-for="${name}"]`).hidden = !show;
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    sent.hidden = true;
+    failed.hidden = true;
+
+    const data = Object.fromEntries(new FormData(form));
+    const checks = {
+      name: data.name.trim() !== '',
+      email: emailPattern.test(data.email.trim()),
+      message: data.message.trim() !== '',
+    };
+    Object.entries(checks).forEach(([name, ok]) => showError(name, !ok));
+    const firstBad = Object.keys(checks).find((name) => !checks[name]);
+    if (firstBad) {
+      form.elements[firstBad].focus();
+      return;
+    }
+
+    // Bots fill the hidden field: pretend it worked and send nothing.
+    if (data.website) {
+      sent.hidden = false;
+      form.reset();
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Sending…';
+    try {
+      const response = await fetch('https://us-central1-brickandclick.cloudfunctions.net/sendEmail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: data.name.trim(),
+          business: 'FlipScroll website',
+          email: data.email.trim(),
+          message: `[FlipScroll · ${data.topic}]\n\n${data.message.trim()}`,
+        }),
+      });
+      let result = {};
+      try { result = await response.json(); } catch (_) { /* tolerate non-JSON */ }
+      if (response.ok && result.success !== false) {
+        sent.hidden = false;
+        form.reset();
+      } else {
+        failed.hidden = false;
+      }
+    } catch (_) {
+      failed.hidden = false;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Send message';
+    }
+  });
+})();
+</script>
+</body>
+</html>
